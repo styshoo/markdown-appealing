@@ -17,7 +17,8 @@
     "Other"
   ],
   "activationEvents": [
-    "onLanguage:markdown"
+    "onLanguage:markdown",
+    "onCommand:markdownAppealing.openPreview"
   ],
   "main": "./dist/extension.js",
   "contributes": {
@@ -80,7 +81,30 @@
         "mac": "cmd+shift+v",
         "when": "editorLangId == markdown || resourceExtname =~ /\\.(md|mkd|mdwn|mdown|markdown|mdx)/i"
       }
-    ]
+    ],
+    "menus": {
+      "editor/context": [
+        {
+          "command": "markdownAppealing.openPreview",
+          "when": "resourceExtname =~ /\\.(md|mkd|mdwn|mdown|markdown|mdx)/i",
+          "group": "navigation@90"
+        }
+      ],
+      "explorer/context": [
+        {
+          "command": "markdownAppealing.openPreview",
+          "when": "resourceExtname =~ /\\.(md|mkd|mdwn|mdown|markdown|mdx)/i",
+          "group": "navigation@90"
+        }
+      ],
+      "editor/title/context": [
+        {
+          "command": "markdownAppealing.openPreview",
+          "when": "resourceExtname =~ /\\.(md|mkd|mdwn|mdown|markdown|mdx)/i",
+          "group": "navigation@90"
+        }
+      ]
+    }
   },
   "scripts": {
     "copy:mermaid": "mkdir -p vendor && cp node_modules/mermaid/dist/mermaid.min.js vendor/mermaid.min.js",
