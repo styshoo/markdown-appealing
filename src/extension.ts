@@ -13,13 +13,19 @@ function isMarkdownDoc(doc: vscode.TextDocument): boolean {
 
 export function activate(context: vscode.ExtensionContext) {
   context.subscriptions.push(
-    vscode.commands.registerCommand('markdownAppealing.openPreview', () => {
-      const editor = vscode.window.activeTextEditor;
-      if (!editor || !isMarkdownDoc(editor.document)) {
+    vscode.commands.registerCommand('markdownAppealing.openPreview', async (uri?: vscode.Uri) => {
+      let doc: vscode.TextDocument | undefined;
+      if (uri instanceof vscode.Uri) {
+        doc = await vscode.workspace.openTextDocument(uri);
+        await vscode.window.showTextDocument(doc, { preview: false, preserveFocus: false });
+      } else {
+        doc = vscode.window.activeTextEditor?.document;
+      }
+      if (!doc || !isMarkdownDoc(doc)) {
         vscode.window.showWarningMessage('Open a markdown file first.');
         return;
       }
-      PreviewPanel.createOrShow(context, editor.document);
+      PreviewPanel.createOrShow(context, doc);
     }),
 
     vscode.commands.registerCommand('markdownAppealing.switchTheme', async () => {
