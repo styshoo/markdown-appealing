@@ -12,3 +12,4 @@ node_modules/**
 tsconfig.json
 **/*.ts
 **/*.map
+*vllm最小模型测试.md

@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.10.3] - 2026-09-29
+
+### Changed
+- Each markdown file now gets its own preview panel, keyed by document URI — opening a preview for a second file no longer replaces the first one
+- Switching editor tabs no longer repoints an existing preview at the newly focused document
+- Live updates only re-render the preview showing that document; theme / dark mode / fullscreen commands act on the focused preview (falling back to the most recent one)
+
 ## [0.10.1] - 2026-08-12
 
 ### Fixed

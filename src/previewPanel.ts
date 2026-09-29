@@ -5,7 +5,10 @@ import * as path from 'path';
 import * as fs from 'fs';
 
 export class PreviewPanel {
-  public static currentPanel: PreviewPanel | undefined;
+  /** One preview panel per document URI currently shown. */
+  private static readonly panels = new Map<string, PreviewPanel>();
+  /** The preview whose webview most recently had focus (for theme/fullscreen commands). */
+  private static activePanel: PreviewPanel | undefined;
   private static readonly viewType = 'markdownAppealing.preview';
 
   private readonly panel: vscode.WebviewPanel;
@@ -25,11 +28,41 @@ export class PreviewPanel {
     this.extensionPath = context.extensionPath;
     this.themeManager = new ThemeManager(context.globalState);
     this.panel.onDidDispose(() => this.dispose(), null, this.disposables);
+    this.panel.onDidChangeViewState(
+      (e) => {
+        if (e.webviewPanel.active) {
+          PreviewPanel.activePanel = this;
+        }
+      },
+      null,
+      this.disposables,
+    );
     this.panel.webview.onDidReceiveMessage(
       (msg) => this.handleMessage(msg),
       null,
       this.disposables,
     );
+  }
+
+  public static getActive(): PreviewPanel | undefined {
+    if (PreviewPanel.activePanel && !PreviewPanel.activePanel.disposed) {
+      return PreviewPanel.activePanel;
+    }
+    // Fallback: most recently registered panel still open.
+    const panels = [...PreviewPanel.panels.values()];
+    return panels[panels.length - 1];
+  }
+
+  public static getByUri(uri: vscode.Uri): PreviewPanel | undefined {
+    return PreviewPanel.panels.get(uri.toString());
+  }
+
+  public static updateAll(): void {
+    for (const panel of PreviewPanel.panels.values()) {
+      if (panel.currentDocument) {
+        panel.update(panel.currentDocument);
+      }
+    }
   }
 
   private handleMessage(msg: { type: string; [key: string]: unknown }) {
@@ -52,17 +85,19 @@ export class PreviewPanel {
   }
 
   public static createOrShow(context: vscode.ExtensionContext, document: vscode.TextDocument) {
-    const column = vscode.window.activeTextEditor?.viewColumn ?? vscode.ViewColumn.One;
-
-    if (PreviewPanel.currentPanel) {
-      PreviewPanel.currentPanel.panel.reveal(column);
-      PreviewPanel.currentPanel.update(document);
+    const key = document.uri.toString();
+    const existing = PreviewPanel.panels.get(key);
+    if (existing) {
+      existing.panel.reveal();
+      existing.update(document);
+      PreviewPanel.activePanel = existing;
       return;
     }
 
+    const column = vscode.window.activeTextEditor?.viewColumn ?? vscode.ViewColumn.One;
     const panel = vscode.window.createWebviewPanel(
       PreviewPanel.viewType,
-      'Markdown Preview',
+      `Preview: ${path.basename(document.fileName)}`,
       column,
       {
         enableScripts: true,
@@ -74,13 +109,14 @@ export class PreviewPanel {
       },
     );
 
-    PreviewPanel.currentPanel = new PreviewPanel(panel, context);
-    PreviewPanel.currentPanel.navPush(document.uri);
-    PreviewPanel.currentPanel.update(document);
+    const preview = new PreviewPanel(panel, context);
+    PreviewPanel.activePanel = preview;
+    preview.navPush(document.uri);
+    preview.update(document);
   }
 
   public update(document: vscode.TextDocument) {
-    this.currentDocument = document;
+    this.rebindDocument(document);
     const source = document.getText();
     const { html, toc, frontmatter } = parseMarkdown(source);
     this.panel.title = `Preview: ${path.basename(document.fileName)}`;
@@ -90,6 +126,30 @@ export class PreviewPanel {
     if (this.isFullscreen) {
       this.panel.webview.postMessage({ type: 'fullscreenChanged', fullscreen: true });
     }
+  }
+
+  /** Keep the URI → panel map in sync when in-panel navigation changes the document. */
+  private rebindDocument(document: vscode.TextDocument) {
+    const newKey = document.uri.toString();
+    const oldKey = this.currentDocument?.uri.toString();
+
+    if (oldKey === newKey) {
+      this.currentDocument = document;
+      return;
+    }
+
+    if (oldKey && PreviewPanel.panels.get(oldKey) === this) {
+      PreviewPanel.panels.delete(oldKey);
+    }
+
+    const other = PreviewPanel.panels.get(newKey);
+    if (other && other !== this) {
+      // Another preview already shows this file — close it so this panel owns the URI.
+      other.dispose();
+    }
+
+    this.currentDocument = document;
+    PreviewPanel.panels.set(newKey, this);
   }
 
   public setTheme(name: string) {
@@ -2005,7 +2065,6 @@ export class PreviewPanel {
     this.navIndex--;
     const uri = this.navHistory[this.navIndex];
     const doc = await vscode.workspace.openTextDocument(uri);
-    this.currentDocument = doc;
     this.update(doc);
     this.panel.webview.postMessage({
       type: 'navStateChanged',
@@ -2019,7 +2078,6 @@ export class PreviewPanel {
     this.navIndex++;
     const uri = this.navHistory[this.navIndex];
     const doc = await vscode.workspace.openTextDocument(uri);
-    this.currentDocument = doc;
     this.update(doc);
     this.panel.webview.postMessage({
       type: 'navStateChanged',
@@ -2065,8 +2123,17 @@ export class PreviewPanel {
   }
 
   private dispose() {
+    if (this.disposed) return;
     this.disposed = true;
-    PreviewPanel.currentPanel = undefined;
+
+    const key = this.currentDocument?.uri.toString();
+    if (key && PreviewPanel.panels.get(key) === this) {
+      PreviewPanel.panels.delete(key);
+    }
+    if (PreviewPanel.activePanel === this) {
+      PreviewPanel.activePanel = undefined;
+    }
+
     this.panel.dispose();
     this.disposables.forEach((d) => d.dispose());
     this.disposables = [];

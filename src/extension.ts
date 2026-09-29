@@ -29,7 +29,7 @@ export function activate(context: vscode.ExtensionContext) {
     }),
 
     vscode.commands.registerCommand('markdownAppealing.switchTheme', async () => {
-      const panel = PreviewPanel.currentPanel;
+      const panel = PreviewPanel.getActive();
       if (!panel) {
         vscode.window.showWarningMessage('Open a preview first.');
         return;
@@ -44,7 +44,7 @@ export function activate(context: vscode.ExtensionContext) {
     }),
 
     vscode.commands.registerCommand('markdownAppealing.toggleDarkMode', () => {
-      const panel = PreviewPanel.currentPanel;
+      const panel = PreviewPanel.getActive();
       if (!panel) {
         vscode.window.showWarningMessage('Open a preview first.');
         return;
@@ -53,7 +53,7 @@ export function activate(context: vscode.ExtensionContext) {
     }),
 
     vscode.commands.registerCommand('markdownAppealing.toggleFullscreen', () => {
-      const panel = PreviewPanel.currentPanel;
+      const panel = PreviewPanel.getActive();
       if (!panel) {
         vscode.window.showWarningMessage('Open a preview first.');
         return;
@@ -62,32 +62,22 @@ export function activate(context: vscode.ExtensionContext) {
     })
   );
 
-  // Re-render when extension font settings change
+  // Re-render all open previews when extension font settings change
   context.subscriptions.push(
     vscode.workspace.onDidChangeConfiguration((e) => {
-      if (e.affectsConfiguration('markdownAppealing') && PreviewPanel.currentPanel) {
-        const editor = vscode.window.activeTextEditor;
-        if (editor && isMarkdownDoc(editor.document)) {
-          PreviewPanel.currentPanel.update(editor.document);
-        }
+      if (e.affectsConfiguration('markdownAppealing')) {
+        PreviewPanel.updateAll();
       }
     })
   );
 
-  // Live update on text change
+  // Live update only the preview that shows this document
   context.subscriptions.push(
     vscode.workspace.onDidChangeTextDocument((e) => {
-      if (isMarkdownDoc(e.document) && PreviewPanel.currentPanel) {
-        PreviewPanel.currentPanel.update(e.document);
-      }
-    })
-  );
-
-  // Update when switching to a different markdown file
-  context.subscriptions.push(
-    vscode.window.onDidChangeActiveTextEditor((editor) => {
-      if (editor && isMarkdownDoc(editor.document) && PreviewPanel.currentPanel) {
-        PreviewPanel.currentPanel.update(editor.document);
+      if (!isMarkdownDoc(e.document)) return;
+      const panel = PreviewPanel.getByUri(e.document.uri);
+      if (panel) {
+        panel.update(e.document);
       }
     })
   );

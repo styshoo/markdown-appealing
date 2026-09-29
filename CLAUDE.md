@@ -28,7 +28,7 @@ This is a VS Code extension that provides a rich markdown preview via a webview 
 - Dark/light mode uses explicit `[data-mode="dark"]` / `[data-mode="light"]` CSS selectors per theme. On load, the mode is detected from VS Code's `activeColorTheme.kind`.
 - The markdown-it fence renderer is overridden to wrap code blocks with a copy button header and line number gutter (visible only in terminal theme via CSS).
 - TOC is built as a hierarchical tree in `buildTocHtml()`, with scroll-spy via IntersectionObserver in the webview JS.
-- `PreviewPanel` is a singleton — only one preview panel exists at a time.
+- Preview panels are keyed by document URI — each file can have its own preview; theme/fullscreen commands target the focused (or last) panel.
 - Code blocks use the user's VS Code `editor.fontFamily` setting, injected as a CSS variable `--editor-font`.
 
 **Theme CSS structure:** Each theme file defines variables under `[data-theme="X"][data-mode="light"]`, `[data-theme="X"][data-mode="dark"]`, and `@media (prefers-color-scheme)` for the system-default case. Themes also define element-specific styles (e.g., terminal adds `::before` content to headings).
